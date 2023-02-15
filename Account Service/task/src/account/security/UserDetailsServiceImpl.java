@@ -1,5 +1,7 @@
-package account.auth;
+package account.security;
 
+import account.repository.UserRepository;
+import account.entity.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;

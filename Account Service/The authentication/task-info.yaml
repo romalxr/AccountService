@@ -367,7 +367,7 @@ files:
       };
     }
   learner_created: false
-- name: src/account/auth/UserController.java
+- name: src/account/controller/UserController.java
   visible: true
   text: |
     package account.auth;
@@ -393,17 +393,7 @@ files:
         }
     }
   learner_created: true
-- name: src/account/auth/UserRepository.java
-  visible: true
-  text: |-
-    package account.auth;
-
-    import org.springframework.data.repository.CrudRepository;
-
-    public interface UserRepository extends CrudRepository<User, String>{
-    }
-  learner_created: true
-- name: src/account/auth/User.java
+- name: src/account/entity/User.java
   visible: true
   text: |-
     package account.auth;
@@ -443,21 +433,37 @@ files:
         private String password;
     }
   learner_created: true
-- name: src/account/WebSecurity.java
+- name: src/account/dto/UserDTO.java
   visible: true
   learner_created: true
-- name: src/account/auth/UserDetailsServiceImpl.java
+- name: src/account/security/UserDetailsImpl.java
   visible: true
   learner_created: true
-- name: src/account/auth/UserDetailsImpl.java
+- name: src/account/security/UserDetailsServiceImpl.java
   visible: true
   learner_created: true
-- name: src/account/empl/EmplRepository.java
+- name: src/account/security/WebSecurity.java
+  visible: true
+  learner_created: true
+- name: src/account/repository/UserRepository.java
+  visible: true
+  text: |-
+    package account.auth;
+
+    import org.springframework.data.repository.CrudRepository;
+
+    public interface UserRepository extends CrudRepository<User, String>{
+    }
+  learner_created: true
+- name: src/account/mapper/UserMapper.java
+  visible: true
+  learner_created: true
+- name: src/account/controller/PaymentController.java
   visible: true
   learner_created: true
 feedback_link: https://hyperskill.org/learn/step/16602#comment
 status: Solved
 feedback:
   message: Congratulations!
-  time: "Sun, 12 Feb 2023 10:49:34 UTC"
+  time: "Wed, 15 Feb 2023 18:28:21 UTC"
 record: 2

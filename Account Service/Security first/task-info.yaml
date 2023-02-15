@@ -557,60 +557,6 @@ files:
         }
     }
   learner_created: true
-- name: src/account/WebSecurity.java
-  visible: true
-  text: |+
-    package account;
-
-    import org.springframework.beans.factory.annotation.Autowired;
-    import org.springframework.context.annotation.Bean;
-    import org.springframework.context.annotation.Configuration;
-    import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-    import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-    import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-    import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-    import org.springframework.security.core.userdetails.UserDetailsService;
-    import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-    import org.springframework.security.crypto.password.PasswordEncoder;
-    import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-
-    import static org.springframework.security.config.Customizer.withDefaults;
-
-    @Configuration
-    @EnableWebSecurity
-    public class WebSecurity extends WebSecurityConfigurerAdapter {
-
-        @Autowired
-        UserDetailsService userDetailsService;
-
-        @Override
-        public void configure(HttpSecurity http) throws Exception {
-            http.authorizeRequests()
-                    .mvcMatchers("/api/auth/**", "/actuator/shutdown/**").permitAll()
-                    .mvcMatchers("/**").authenticated() // or .anyRequest().authenticated()
-                    .and()
-                    .formLogin()
-                    .and()
-                    .httpBasic(withDefaults())
-                    .csrf(AbstractHttpConfigurer::disable)
-                    .headers((headers) -> headers.frameOptions().sameOrigin())
-            ;
-        }
-
-        @Override
-        protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-            auth
-                    .userDetailsService(userDetailsService) // user store 1
-                    .passwordEncoder(getEncoder());
-        }
-
-        @Bean
-        public PasswordEncoder getEncoder() {
-            return new BCryptPasswordEncoder();
-        }
-    }
-
-  learner_created: true
 - name: src/account/auth/UserDetailsImpl.java
   visible: true
   text: |-
@@ -808,9 +754,45 @@ files:
 - name: src/account/acct/EmployeeDataDto.java
   visible: true
   learner_created: true
+- name: src/account/controller/UserController.java
+  visible: true
+  learner_created: true
+- name: src/account/controller/PaymentController.java
+  visible: true
+  learner_created: true
+- name: src/account/mapper/UserMapper.java
+  visible: true
+  learner_created: true
+- name: src/account/dto/UserDTO.java
+  visible: true
+  learner_created: true
+- name: src/account/repository/UserRepository.java
+  visible: true
+  learner_created: true
+- name: src/account/entity/User.java
+  visible: true
+  learner_created: true
+- name: src/account/security/UserDetailsServiceImpl.java
+  visible: true
+  learner_created: true
+- name: src/account/security/UserDetailsImpl.java
+  visible: true
+  learner_created: true
+- name: src/account/dto/PasswordDTO.java
+  visible: true
+  learner_created: true
+- name: src/account/security/WebSecurityConfig.java
+  visible: true
+  learner_created: true
+- name: src/account/service/UserService.java
+  visible: true
+  learner_created: true
+- name: src/account/exception/MyExceptionHandler.java
+  visible: true
+  learner_created: true
 feedback_link: https://hyperskill.org/learn/step/16603#comment
 status: Solved
 feedback:
   message: Congratulations!
-  time: "Sun, 12 Feb 2023 11:32:27 UTC"
+  time: "Wed, 15 Feb 2023 19:35:16 UTC"
 record: 3
