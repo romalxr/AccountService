@@ -26,8 +26,10 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
     @Override
     public void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
+                .mvcMatchers("/actuator/**").permitAll()
+                .mvcMatchers("/h2-console/**").permitAll()
                 .mvcMatchers("/api/auth/signup").permitAll()
-                .mvcMatchers("/actuator/shutdown/**").permitAll()
+                .mvcMatchers("/api/acct/payments").permitAll()
                 .mvcMatchers("/**").authenticated() // or .anyRequest().authenticated()
                 .and()
                 .formLogin()

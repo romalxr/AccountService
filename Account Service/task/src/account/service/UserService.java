@@ -11,12 +11,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.validation.Valid;
 import java.util.List;
-import java.util.Map;
+
 
 @Service
 @Validated
@@ -39,13 +38,13 @@ public class UserService {
     public void updateUser(UserDetails userDetails, @Valid PasswordDTO passwordDTO) {
         checkBadPassword(passwordDTO.getNewPassword());
         checkNewPassword(userDetails.getUsername(), passwordDTO.getNewPassword());
-        User user = userRepository.findFirstByEmailIgnoreCase(userDetails.getUsername()).get();
+        User user = getUserByEmail(userDetails.getUsername());
         user.setPassword(encoder.encode(passwordDTO.getNewPassword()));
         userRepository.save(user);
     }
 
     private void checkNewPassword(String email, String newPassword) {
-        User user = userRepository.findFirstByEmailIgnoreCase(email).get();
+        User user = getUserByEmail(email);
         if (encoder.matches(newPassword, user.getPassword())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The passwords must be different!");
         }
@@ -72,10 +71,20 @@ public class UserService {
         }
     }
 
-    private void checkUserExist(String email) {
+    void checkUserExist(String email) {
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User exist!");
         }
+    }
+
+    void checkUserNotExist(String email) {
+        if (!userRepository.existsByEmailIgnoreCase(email)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not exist!");
+        }
+    }
+    User getUserByEmail(String email) {
+        checkUserNotExist(email);
+        return userRepository.findFirstByEmailIgnoreCase(email).get();
     }
 
 }
