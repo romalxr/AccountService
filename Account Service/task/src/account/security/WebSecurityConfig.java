@@ -1,5 +1,6 @@
 package account.security;
 
+import account.exception.MyAccessDeniedHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,7 +13,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.web.access.AccessDeniedHandler;
 
 import static org.springframework.security.config.Customizer.withDefaults;
 
@@ -29,7 +29,9 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
                 .mvcMatchers("/actuator/**").permitAll()
                 .mvcMatchers("/h2-console/**").permitAll()
                 .mvcMatchers("/api/auth/signup").permitAll()
-                .mvcMatchers("/api/acct/payments").permitAll()
+                .mvcMatchers("/api/empl/payment").hasAnyAuthority("USER", "ACCOUNTANT")
+                .mvcMatchers("/api/acct/payments").hasAuthority("ACCOUNTANT")
+                .mvcMatchers("/api/admin/user/**").hasAuthority("ADMINISTRATOR")
                 .mvcMatchers("/**").authenticated() // or .anyRequest().authenticated()
                 .and()
                 .formLogin()
@@ -39,7 +41,9 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
                 .headers((headers) -> headers.frameOptions().sameOrigin())
                 .sessionManagement()
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // no session
-                ;
+                .and()
+                .exceptionHandling().accessDeniedHandler(new MyAccessDeniedHandler());
+
     }
 
     @Override
@@ -55,4 +59,3 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
 }
-

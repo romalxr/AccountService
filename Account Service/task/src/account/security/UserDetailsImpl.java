@@ -1,24 +1,27 @@
 package account.security;
 
+import account.entity.Role;
 import account.entity.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Set;
 
 public class UserDetailsImpl  implements UserDetails {
     private final String username;
     private final String password;
+    private final Set<Role> rolesAndAuthorities;
 
     public UserDetailsImpl(User user) {
         username = user.getEmail();
         password = user.getPassword();
+        rolesAndAuthorities= user.getUserGroups();
     }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.emptyList();
+        return rolesAndAuthorities;
     }
 
     @Override

@@ -1,7 +1,9 @@
 package account.service;
 
+import account.dto.ChangeRoleDTO;
 import account.dto.PasswordDTO;
 import account.dto.UserDTO;
+import account.entity.Role;
 import account.entity.User;
 import account.mapper.UserMapper;
 import account.repository.UserRepository;
@@ -16,10 +18,11 @@ import org.springframework.web.server.ResponseStatusException;
 import javax.validation.Valid;
 import java.util.List;
 
-
 @Service
 @Validated
 public class UserService {
+
+    public enum Operation {GRANT,REMOVE}
 
     @Autowired
     UserRepository userRepository;
@@ -31,6 +34,7 @@ public class UserService {
         checkBadPassword(userDTO.getPassword());
         User user = UserMapper.toEntity(userDTO);
         user.setPassword(encoder.encode(user.getPassword()));
+        user.grantRole(newUserRole());
         userRepository.save(user);
         return UserMapper.toDTO(user);
     }
@@ -41,6 +45,110 @@ public class UserService {
         User user = getUserByEmail(userDetails.getUsername());
         user.setPassword(encoder.encode(passwordDTO.getNewPassword()));
         userRepository.save(user);
+    }
+
+    public List<UserDTO> findAll() {
+        List<User> userList = (List<User>) userRepository.findAll();
+        return userList.stream()
+                .map(UserMapper::toDTO)
+                .toList();
+    }
+
+    public void delete(String email) {
+        User user = getUserByEmail(email, true);
+        checkRemovingAdmin(user, Role.ADMINISTRATOR);
+        userRepository.delete(user);
+    }
+
+    public UserDTO changeRole(@Valid ChangeRoleDTO changeRole) {
+        User user = getUserByEmail(changeRole.getEmail(), true);
+        Role role = parseRole(changeRole.getRole());
+        Operation operation = parseOperation(changeRole.getOperation());
+
+        if (operation == Operation.GRANT) {
+            checkUserHasRole(user, role);
+            checkConflictRole(user, role);
+            user.grantRole(role);
+        } else if (operation == Operation.REMOVE) {
+            checkUserHasNotRole(user, role);
+            checkRemovingAdmin(user, role);
+            checkRemovingLastRole(user);
+            user.removeRole(role);
+        } else {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected operation!");
+        }
+
+        userRepository.save(user);
+        return UserMapper.toDTO(user);
+    }
+
+    User getUserByEmail(String email) {
+        return getUserByEmail(email, false);
+    }
+
+    User getUserByEmail(String email, boolean stupidTest) {
+        checkUserNotExist(email, stupidTest);
+        return userRepository.findFirstByEmailIgnoreCase(email).get();
+    }
+
+    private void checkConflictRole(User user, Role role) {
+        if (role == Role.ADMINISTRATOR ||
+                user.getUserGroups().contains(Role.ADMINISTRATOR)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "The user cannot combine administrative and business roles!");
+        }
+    }
+
+    private void checkRemovingLastRole(User user) {
+        if (user.getUserGroups().size() == 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The user must have at least one role!");
+        }
+    }
+
+    private void checkRemovingAdmin(User user, Role role) {
+        if (role == Role.ADMINISTRATOR && userHasRole(user, role)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Can't remove ADMINISTRATOR role!");
+        }
+    }
+
+    private void checkUserHasRole(User user, Role role) {
+        if (userHasRole(user, role)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The user already have a role!");
+        }
+    }
+
+    private void checkUserHasNotRole(User user, Role role) {
+        if (!userHasRole(user, role)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The user does not have a role!");
+        }
+    }
+
+    private Operation parseOperation(String operation) {
+        try {
+            return Operation.valueOf(operation.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Operation not found!");
+        }
+    }
+
+    private Role parseRole(String role) {
+        try {
+            return Role.valueOf(role.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Role not found!");
+        }
+    }
+
+    private boolean userHasRole(User user, Role role) {
+        return user.getUserGroups().contains(role);
+    }
+
+    private Role newUserRole() {
+        if (findAll().isEmpty()) {
+            return Role.ADMINISTRATOR;
+        } else {
+            return Role.USER;
+        }
     }
 
     private void checkNewPassword(String email, String newPassword) {
@@ -77,14 +185,15 @@ public class UserService {
         }
     }
 
-    void checkUserNotExist(String email) {
+    void checkUserNotExist(String email, boolean stupidTest) {
         if (!userRepository.existsByEmailIgnoreCase(email)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not exist!");
+            if (stupidTest) {
+                //in case DELETE user test want different status what is stupid
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found!");
+            } else {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User not found!");
+            }
         }
-    }
-    User getUserByEmail(String email) {
-        checkUserNotExist(email);
-        return userRepository.findFirstByEmailIgnoreCase(email).get();
     }
 
 }

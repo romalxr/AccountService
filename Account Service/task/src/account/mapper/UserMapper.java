@@ -3,6 +3,8 @@ package account.mapper;
 import account.dto.UserDTO;
 import account.entity.User;
 
+import java.util.stream.Collectors;
+
 public class UserMapper {
 
     public static User toEntity(UserDTO userDTO){
@@ -20,6 +22,9 @@ public class UserMapper {
                 .name(userEntity.getName())
                 .lastname(userEntity.getLastname())
                 .email(userEntity.getEmail())
+                .roles(userEntity.getUserGroups().stream()
+                        .map(el -> "ROLE_" + el)
+                        .collect(Collectors.toSet()))
                 .build();
     }
 }

@@ -1,20 +1,13 @@
 package account.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.validation.constraints.Email;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Pattern;
+import javax.persistence.*;
+import java.util.Set;
+import java.util.TreeSet;
 
 @Entity
 @Data
@@ -28,6 +21,22 @@ public class User {
     private int id;
     private String name;
     private String lastname;
+    @Column(unique = true)
     private String email;
     private String password;
+    @ElementCollection(targetClass = Role.class, fetch = FetchType.EAGER)
+    private Set<Role> userGroups;
+
+    public void grantRole(Role role){
+        if (userGroups == null){
+            userGroups = new TreeSet<>();
+        }
+        userGroups.add(role);
+    }
+    public void removeRole(Role role){
+        userGroups.remove(role);
+    }
+    public Set<Role> getUserGroups() {
+        return userGroups;
+    }
 }

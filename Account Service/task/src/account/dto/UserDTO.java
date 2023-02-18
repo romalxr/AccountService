@@ -5,12 +5,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.validator.constraints.Length;
 
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
 import javax.validation.constraints.*;
+import java.util.Set;
 
 @Data
 @Builder
@@ -29,7 +26,9 @@ public class UserDTO {
     @Pattern(regexp = ".+@acme.com", message = "Domain should be @acme.com")
     private String email;
     @NotBlank
-    @Length(min = 12, message = "Password length must be 12 chars minimum!")
+    //@Length(min = 12, message = "Password length must be 12 chars minimum!")
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private Set<String> roles;
 }

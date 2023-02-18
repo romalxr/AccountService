@@ -913,12 +913,6 @@ files:
 
     }
   learner_created: false
-- name: src/account/mapper/PaymentMapper.java
-  visible: true
-  learner_created: true
-- name: src/account/entity/Payment.java
-  visible: true
-  learner_created: true
 - name: src/account/entity/User.java
   visible: true
   learner_created: true
@@ -931,28 +925,10 @@ files:
 - name: src/account/service/UserService.java
   visible: true
   learner_created: true
-- name: src/account/configuration/WebSecurityConfigurerImpl.java
-  visible: true
-  learner_created: true
 - name: src/account/controller/UserController.java
   visible: true
   learner_created: true
-- name: src/account/configuration/UserDetailsImpl.java
-  visible: true
-  learner_created: true
 - name: src/account/repository/UserRepository.java
-  visible: true
-  learner_created: true
-- name: src/account/configuration/UserDetailsServiceImpl.java
-  visible: true
-  learner_created: true
-- name: src/account/repository/AccountRepository.java
-  visible: true
-  learner_created: true
-- name: src/account/service/AccountService.java
-  visible: true
-  learner_created: true
-- name: src/account/controller/AccountController.java
   visible: true
   learner_created: true
 - name: src/account/AccountServiceApplication.java
@@ -961,12 +937,48 @@ files:
 - name: src/account/dto/UserDTO.java
   visible: true
   learner_created: true
-- name: src/account/dto/PaymentDTO.java
+- name: src/account/security/UserDetailsServiceImpl.java
+  visible: true
+  learner_created: true
+- name: src/account/security/WebSecurityConfig.java
+  visible: true
+  learner_created: true
+- name: src/account/security/UserDetailsImpl.java
+  visible: true
+  learner_created: true
+- name: src/account/exception/MyExceptionHandler.java
+  visible: true
+  learner_created: true
+- name: src/account/dto/PayrollDTO.java
+  visible: true
+  learner_created: true
+- name: src/account/repository/PayrollRepository.java
+  visible: true
+  learner_created: true
+- name: src/account/entity/Payroll.java
+  visible: true
+  learner_created: true
+- name: src/account/service/PayrollService.java
+  visible: true
+  learner_created: true
+- name: src/account/mapper/PayrollMapper.java
+  visible: true
+  learner_created: true
+- name: src/account/controller/PayrollController.java
+  visible: true
+  learner_created: true
+- name: src/account/entity/Role.java
+  visible: true
+  learner_created: true
+- name: src/account/dto/ChangeRoleDTO.java
+  visible: true
+  learner_created: true
+- name: src/account/exception/MyAccessDeniedHandler.java
   visible: true
   learner_created: true
 feedback_link: https://hyperskill.org/learn/step/16605#comment
-status: Failed
+status: Solved
 feedback:
-  message: Compilation Failed
-  time: "Wed, 15 Feb 2023 17:23:11 UTC"
+  message: Congratulations!
+  time: "Sat, 18 Feb 2023 11:17:17 UTC"
 record: 5

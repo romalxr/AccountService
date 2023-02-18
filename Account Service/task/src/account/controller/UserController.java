@@ -1,43 +1,50 @@
 package account.controller;
 
+import account.dto.ChangeRoleDTO;
 import account.dto.PasswordDTO;
 import account.dto.UserDTO;
-import account.entity.User;
-import account.mapper.UserMapper;
-import account.repository.UserRepository;
 import account.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
 import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api")
 public class UserController {
 
     @Autowired
     UserService userService;
-    @PostMapping("/signup")
+
+    @PostMapping("/auth/signup")
     public UserDTO register(@RequestBody UserDTO userDTO) {
         return userService.saveUser(userDTO);
     }
 
-    @PostMapping("/changepass")
+    @PostMapping("/auth/changepass")
     public Object changePassword(@RequestBody PasswordDTO passwordDTO, @AuthenticationPrincipal UserDetails userDetails) {
         userService.updateUser(userDetails, passwordDTO);
         return Map.of("email", userDetails.getUsername(),
                 "status", "The password has been updated successfully");
     }
 
+    @GetMapping("/admin/user")
+    public List<UserDTO> getUserList() {
+        return userService.findAll();
+    }
+
+    @DeleteMapping ("/admin/user/{email}")
+    public Object deleteUser(@PathVariable String email) {
+        userService.delete(email);
+        return Map.of("user", email,
+                "status", "Deleted successfully!");
+    }
+
+    @PutMapping("/admin/user/role")
+    public UserDTO changeRole(@RequestBody ChangeRoleDTO changeRole) {
+        return userService.changeRole(changeRole);
+    }
 }
