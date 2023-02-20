@@ -1,13 +1,16 @@
 package account.service;
 
+import account.dto.ChangeAccessDTO;
 import account.dto.ChangeRoleDTO;
 import account.dto.PasswordDTO;
 import account.dto.UserDTO;
+import account.entity.Operation;
 import account.entity.Role;
 import account.entity.User;
 import account.mapper.UserMapper;
 import account.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,16 +19,22 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.validation.Valid;
+import java.util.Date;
 import java.util.List;
 
 @Service
 @Validated
 public class UserService {
-
-    public enum Operation {GRANT,REMOVE}
+    public static final int MAX_FAILED_ATTEMPTS = 4;
+    private static final long LOCK_TIME_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
     @Autowired
     UserRepository userRepository;
+
+    @Autowired
+    @Lazy
+    private EventService eventService;
+
     @Autowired
     private PasswordEncoder encoder;
 
@@ -82,13 +91,80 @@ public class UserService {
         return UserMapper.toDTO(user);
     }
 
-    User getUserByEmail(String email) {
+    public User getUserByEmail(String email) {
         return getUserByEmail(email, false);
     }
 
     User getUserByEmail(String email, boolean stupidTest) {
         checkUserNotExist(email, stupidTest);
         return userRepository.findFirstByEmailIgnoreCase(email).get();
+    }
+
+    public void registerSuccessLogin(String email) {
+        User user = getUserByEmail(email);
+        resetFailedAttempts(user);
+    }
+
+    public void registerBadLogin(String email, String path) {
+        if (!userRepository.existsByEmailIgnoreCase(email)) {
+            return;
+        }
+        User user = getUserByEmail(email);
+        if (user.getFailedAttempt() < UserService.MAX_FAILED_ATTEMPTS) {
+            increaseFailedAttempts(user);
+        } else {
+            eventService.addEventBruteForce(email.toLowerCase(), path);
+            lock(email, user, path);
+        }
+    }
+
+    public void resetFailedAttempts(User user) {
+        if (user.getFailedAttempt() > 0) {
+            user.setFailedAttempt(0);
+            userRepository.save(user);
+        }
+    }
+
+    public void increaseFailedAttempts(User user) {
+        user.setFailedAttempt(user.getFailedAttempt() + 1);
+        userRepository.save(user);
+    }
+
+    public void changeAccess(UserDetails userDetails, ChangeAccessDTO changeAccessDTO) {
+        User user = getUserByEmail(changeAccessDTO.getEmail());
+        checkLockingAdmin(user);
+        if ("LOCK".equalsIgnoreCase(changeAccessDTO.getOperation())){
+            lock(userDetails.getUsername(), user, "/api/admin/user/access");
+        } else if ("UNLOCK".equalsIgnoreCase(changeAccessDTO.getOperation())) {
+            unlock(userDetails.getUsername(), user, "/api/admin/user/access");
+        }
+    }
+
+    public void unlock(String subjectEmail, User user, String path) {
+        user.setAccountLocked(false);
+        user.setFailedAttempt(0);
+        user.setLockTime(null);
+        userRepository.save(user);
+        eventService.addEventUnlockUser(subjectEmail.toLowerCase(), user.getEmail().toLowerCase(), path);
+    }
+
+    public void lock(String subjectEmail, User user, String path) {
+        if (userHasRole(user, Role.ADMINISTRATOR)) {
+            return;
+        }
+        user.setAccountLocked(true);
+        user.setLockTime(new Date());
+        userRepository.save(user);
+        eventService.addEventLockUser(subjectEmail.toLowerCase(), user.getEmail().toLowerCase(), path);
+    }
+
+    public void unlockWhenTimeExpired(String email, String path) {
+        User user = getUserByEmail(email);
+        long lockTimeInMillis = user.getLockTime().getTime();
+        long currentTimeInMillis = System.currentTimeMillis();
+        if (lockTimeInMillis + LOCK_TIME_DURATION < currentTimeInMillis) {
+            unlock(user.getEmail(), user, path);
+        }
     }
 
     private void checkConflictRole(User user, Role role) {
@@ -102,6 +178,12 @@ public class UserService {
     private void checkRemovingLastRole(User user) {
         if (user.getUserGroups().size() == 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The user must have at least one role!");
+        }
+    }
+
+    private void checkLockingAdmin(User user) {
+        if (userHasRole(user, Role.ADMINISTRATOR)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Can't lock the ADMINISTRATOR!");
         }
     }
 

@@ -1,4 +1,4 @@
-package account.exception;
+package account.handler;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ControllerAdvice;

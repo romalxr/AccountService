@@ -1,35 +1,31 @@
 package account.security;
 
-import account.entity.Role;
 import account.entity.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
-import java.util.Set;
 
 public class UserDetailsImpl  implements UserDetails {
-    private final String username;
-    private final String password;
-    private final Set<Role> rolesAndAuthorities;
+    private final User user;
 
     public UserDetailsImpl(User user) {
-        username = user.getEmail();
-        password = user.getPassword();
-        rolesAndAuthorities= user.getUserGroups();
+        this.user = user;
     }
+
+    public User getUser() { return user; }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return rolesAndAuthorities;
+        return user.getUserGroups();
     }
 
     @Override
-    public String getPassword() { return password; }
+    public String getPassword() { return user.getPassword(); }
 
     @Override
     public String getUsername() {
-        return username;
+        return user.getEmail();
     }
 
     // 4 remaining methods that just return true
@@ -40,7 +36,7 @@ public class UserDetailsImpl  implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return !user.isAccountLocked();
     }
 
     @Override

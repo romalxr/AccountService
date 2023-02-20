@@ -820,214 +820,6 @@ files:
 
     }
   learner_created: false
-- name: src/account/controller/AccountController.java
-  visible: true
-  text: |
-    package account.controller;
-
-    import account.dto.PaymentInDTO;
-    import account.entity.Payment;
-    import account.service.AccountService;
-    import org.springframework.beans.factory.annotation.Autowired;
-    import org.springframework.security.core.annotation.AuthenticationPrincipal;
-    import org.springframework.security.core.userdetails.UserDetails;
-    import org.springframework.web.bind.annotation.*;
-
-
-    import java.util.List;
-    import java.util.Map;
-
-    @RestController
-    @RequestMapping("/api")
-    public class AccountController {
-        @Autowired
-        AccountService accountService;
-
-        @PostMapping("/acct/payments")
-        public Map<String, String> uploadPayrolls(@RequestBody List<PaymentInDTO> paymentList){
-            accountService.uploadPayments(paymentList);
-            return Map.of("status", "Added successfully!");
-        }
-
-        @PutMapping("/acct/payments")
-        public Map<String, String> changeSalary(@RequestBody PaymentInDTO payment){
-            accountService.updatePayment(payment);
-            return Map.of("status", "Updated successfully!");
-        }
-
-        @GetMapping("/empl/payment")
-        public Object showPayroll(@RequestParam(required = false) String period, @AuthenticationPrincipal UserDetails userDetails){
-            if (period == null){
-                return accountService.showPaymentsForEmployee(userDetails);
-            }
-            return accountService.showPaymentForPeriod(period, userDetails);
-        }
-
-        @GetMapping("/acct/payments")
-        public List<Payment> showAllPayrolls(){
-            return accountService.getAllPayments();
-        }
-    }
-  learner_created: true
-- name: src/account/dto/PaymentOutDTO.java
-  visible: true
-  text: |-
-    package account.dto;
-
-    import com.fasterxml.jackson.annotation.JsonFormat;
-    import com.fasterxml.jackson.annotation.JsonIgnore;
-    import lombok.AllArgsConstructor;
-    import lombok.Builder;
-    import lombok.Data;
-    import lombok.NoArgsConstructor;
-
-    import java.time.YearMonth;
-
-    @Builder
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public class PaymentOutDTO {
-        private String name;
-        private String lastname;
-        private String period;
-        @JsonIgnore
-        //@JsonFormat(pattern="MMMM-y")
-        private YearMonth periodYM;
-        private String salary;
-    }
-  learner_created: true
-- name: src/account/service/AccountService.java
-  visible: true
-  text: |
-    package account.service;
-
-    import account.dto.PaymentInDTO;
-    import account.dto.PaymentOutDTO;
-    import account.entity.Payment;
-    import account.entity.User;
-    import account.mapper.PaymentMapper;
-    import account.repository.AccountRepository;
-    import account.repository.UserRepository;
-    import org.springframework.beans.factory.annotation.Autowired;
-    import org.springframework.dao.DataIntegrityViolationException;
-    import org.springframework.http.HttpStatus;
-    import org.springframework.security.core.userdetails.UserDetails;
-    import org.springframework.stereotype.Service;
-    import org.springframework.validation.annotation.Validated;
-    import org.springframework.web.server.ResponseStatusException;
-
-    import javax.validation.Valid;
-    import java.time.*;
-    import java.util.*;
-
-    import static account.util.StringPool.NO_EMPLOYEE_IN_DB;
-    import static account.util.StringPool.PAYMENT_NOT_UNIQUE;
-
-    @Service
-    @Validated
-    public class AccountService {
-
-        @Autowired
-        AccountRepository accountRepository;
-        @Autowired
-        UserRepository userRepository;
-
-        public List<Payment> getAllPayments() {
-            return accountRepository.findAll();
-        }
-
-        public void uploadPayments(List<@Valid PaymentInDTO> paymentList) {
-            checkListValidPayments(paymentList);
-            try {
-                accountRepository.saveAll(paymentList.stream().map(PaymentMapper::convertDtoToEntity).toList());
-            } catch (DataIntegrityViolationException ex) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, PAYMENT_NOT_UNIQUE);
-            }
-        }
-
-        private void checkListValidPayments(List<PaymentInDTO> paymentDTOList) {
-            for (PaymentInDTO item : paymentDTOList) {
-                if (userRepository.findByEmail(item.getEmail()).isEmpty()) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, NO_EMPLOYEE_IN_DB);
-                }
-            }
-        }
-
-        public void updatePayment(@Valid PaymentInDTO paymentDTO) {
-            checkValidPayment(paymentDTO);
-            Payment payment = PaymentMapper.convertDtoToEntity(paymentDTO);
-            Optional<Payment> paymentByPeriod = accountRepository.findByEmailAndPeriod(payment.getEmail(), payment.getPeriod());
-            if (paymentByPeriod.isPresent()){
-                paymentByPeriod.get().setSalary(paymentDTO.getSalary());
-                accountRepository.save(paymentByPeriod.get());
-            }
-        }
-
-        private void checkValidPayment(PaymentInDTO payment) {
-            Optional<User> paymentById = userRepository.findByEmail(payment.getEmail());
-            if (paymentById.isEmpty()){
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, NO_EMPLOYEE_IN_DB);
-            }
-        }
-
-        public List<PaymentOutDTO> showPaymentsForEmployee(UserDetails userDetails) {
-            Optional<User> userById = userRepository.findByEmail(userDetails.getUsername());
-            List<Payment> paymentById = accountRepository.findAllByEmail(userDetails.getUsername());
-            List<PaymentOutDTO> resultSet = paymentById.stream()
-                    .map(el -> PaymentMapper.convertEntityToDTO(userById.get(), el))
-                    .toList();
-            return resultSet.stream()
-                    .sorted(Comparator.comparing(PaymentOutDTO::getPeriodYM).reversed())
-                    .toList();
-        }
-
-        public PaymentOutDTO showPaymentForPeriod(String period, UserDetails userDetails) {
-            YearMonth periodYM = null;
-            try {
-                periodYM = YearMonth.of(Integer.parseInt(period.substring(3)), Integer.parseInt(period.substring(0, 2)));
-            } catch (DateTimeException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Wrong month in params");
-            }
-            Optional<User> userById = userRepository.findByEmail(userDetails.getUsername());
-            Optional<Payment> paymentByPeriod = accountRepository.findByEmailAndPeriod(userDetails.getUsername(), periodYM);
-            if (paymentByPeriod.isPresent() && userById.isPresent()){
-                return PaymentMapper.convertEntityToDTO(userById.get(), paymentByPeriod.get());
-            }
-            return null;
-        }
-    }
-  learner_created: true
-- name: src/account/configuration/UserDetailsServiceImpl.java
-  visible: true
-  text: |-
-    package account.configuration;
-
-    import account.entity.User;
-    import account.repository.UserRepository;
-    import org.springframework.beans.factory.annotation.Autowired;
-    import org.springframework.security.core.userdetails.UserDetails;
-    import org.springframework.security.core.userdetails.UserDetailsService;
-    import org.springframework.security.core.userdetails.UsernameNotFoundException;
-    import org.springframework.stereotype.Service;
-
-    import java.util.Optional;
-
-    @Service
-    public class UserDetailsServiceImpl implements UserDetailsService {
-        @Autowired
-        private UserRepository userRepository;
-
-        @Override
-        public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-            Optional<User> user = userRepository.findByEmailIgnoreCase(username);
-            if (user.isEmpty()){
-                throw new UsernameNotFoundException("Not found: " + username);
-            }
-            return new UserDetailsImpl(user.get());
-        }
-    }
-  learner_created: true
 - name: src/account/entity/User.java
   visible: true
   text: |
@@ -1078,155 +870,6 @@ files:
         }
     }
   learner_created: true
-- name: src/account/entity/Operation.java
-  visible: true
-  text: |-
-    package account.entity;
-
-    import java.io.Serializable;
-
-    public enum Operation implements Serializable {
-        GRANT, REMOVE;
-    }
-  learner_created: true
-- name: src/account/configuration/WebSecurityConfigurerImpl.java
-  visible: true
-  text: |
-    package account.configuration;
-
-    import org.springframework.beans.factory.annotation.Autowired;
-    import org.springframework.context.annotation.Bean;
-    import org.springframework.http.HttpMethod;
-    import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-    import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-    import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-    import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-    import org.springframework.security.config.http.SessionCreationPolicy;
-    import org.springframework.security.core.userdetails.UserDetailsService;
-    import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-    import org.springframework.security.crypto.password.PasswordEncoder;
-    import org.springframework.security.web.access.AccessDeniedHandler;
-
-    @EnableWebSecurity
-    public class WebSecurityConfigurerImpl extends WebSecurityConfigurerAdapter {
-        @Autowired
-        private UserDetailsService userDetailsService;
-
-        @Override
-        public void configure(HttpSecurity http) throws Exception {
-            http
-                    .authorizeRequests() // manage access
-                    .mvcMatchers(HttpMethod.POST, "api/auth/signup").permitAll()
-                    .mvcMatchers("h2-console/**").permitAll()
-                    .mvcMatchers(HttpMethod.POST, "api/auth/changepass").hasAnyAuthority("USER", "ACCOUNTANT", "ADMINISTRATOR")
-                    .mvcMatchers(HttpMethod.GET, "api/empl/payment").hasAnyAuthority("USER", "ACCOUNTANT")
-                    .mvcMatchers(HttpMethod.POST, "api/acct/payments").hasAuthority("ACCOUNTANT")
-                    .mvcMatchers(HttpMethod.PUT, "api/acct/payments").hasAuthority("ACCOUNTANT")
-                    .mvcMatchers(HttpMethod.PUT, "api/admin/user/role").hasAuthority("ADMINISTRATOR")
-                    .mvcMatchers(HttpMethod.GET, "api/admin/user").hasAuthority("ADMINISTRATOR")
-                    .mvcMatchers(HttpMethod.DELETE, "/api/admin/user/**").hasAuthority("ADMINISTRATOR")
-
-                    .and()
-                    .httpBasic()
-                    .authenticationEntryPoint(new RestAuthenticationEntryPoint()) // Handle auth error
-                    .and()
-                    .csrf().disable().headers().frameOptions().disable() // for Postman, the H2 console
-                    .and()
-                    .sessionManagement()
-                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // no session
-                    .and()
-                    .exceptionHandling().accessDeniedHandler(accessDeniedHandler());
-        }
-
-        @Override
-        protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-            auth
-                    .userDetailsService(userDetailsService)
-                    .passwordEncoder(getEncoder());
-        }
-
-        @Bean
-        public PasswordEncoder getEncoder() {
-            return new BCryptPasswordEncoder();
-        }
-
-        @Bean
-        public AccessDeniedHandler accessDeniedHandler() {
-            return new CustomAccessDeniedHandler();
-        }
-    }
-  learner_created: true
-- name: src/account/dto/UserChangeRoleInDTO.java
-  visible: true
-  text: |-
-    package account.dto;
-
-    import com.fasterxml.jackson.annotation.JsonProperty;
-    import lombok.Data;
-
-    @Data
-    public class UserChangeRoleInDTO {
-        @JsonProperty("user")
-        private String email;
-        private String role;
-        private String operation;
-
-        public void setEmail(String email) {
-            this.email = email.toLowerCase();
-        }
-
-        public void setRole(String role) {
-            this.role = role.toUpperCase();
-        }
-
-        public void setOperation(String operation) {
-            this.operation = operation.toUpperCase();
-        }
-
-        public String getRole() {
-            return role;
-        }
-    }
-  learner_created: true
-- name: src/account/mapper/PaymentMapper.java
-  visible: true
-  text: |-
-    package account.mapper;
-
-    import account.dto.PaymentInDTO;
-    import account.dto.PaymentOutDTO;
-    import account.entity.Payment;
-    import account.entity.User;
-
-    import java.time.YearMonth;
-    import java.time.format.DateTimeFormatter;
-    import java.util.Locale;
-
-    public class PaymentMapper {
-        public static Payment convertDtoToEntity(PaymentInDTO paymentInDTO){
-            return Payment.builder()
-                    .email(paymentInDTO.getEmail().toLowerCase())
-                    .period(paymentInDTO.getPeriod())
-                    .salary(paymentInDTO.getSalary())
-                    .build();
-        }
-
-        public static PaymentOutDTO convertEntityToDTO(User user, Payment paymentEntity){
-            long sal = paymentEntity.getSalary();
-            return PaymentOutDTO.builder()
-                    .name(user.getName())
-                    .lastname(user.getLastname())
-                    .period(castPeriod(paymentEntity.getPeriod()))
-                    .periodYM(paymentEntity.getPeriod())
-                    .salary(String.format("%d dollar(s) %d cent(s)", sal / 100, sal % 100))
-                    .build();
-        }
-
-        private static String castPeriod(YearMonth period) {
-            return period.format(DateTimeFormatter.ofPattern("MMMM-yyyy", Locale.US));
-        }
-    }
-  learner_created: true
 - name: src/account/dto/PasswordDTO.java
   visible: true
   text: |-
@@ -1241,113 +884,6 @@ files:
         @Length(min = 12, message = "Password length must be 12 chars minimum!")
         @JsonProperty("new_password")
         private String newPassword;
-    }
-  learner_created: true
-- name: src/account/repository/AccountRepository.java
-  visible: true
-  text: |-
-    package account.repository;
-
-    import account.entity.Payment;
-    import org.springframework.data.jpa.repository.JpaRepository;
-    import org.springframework.stereotype.Repository;
-
-    import java.time.YearMonth;
-    import java.util.List;
-    import java.util.Optional;
-
-    @Repository
-    public interface AccountRepository extends JpaRepository<Payment, Long>{
-        List<Payment> findAllByEmail(String email);
-
-        Optional<Payment> findByEmailAndPeriod(String email, YearMonth period);
-    }
-  learner_created: true
-- name: src/account/exception/MyExceptionHandler.java
-  visible: true
-  text: |-
-    package account.exception;
-
-    import com.fasterxml.jackson.core.JsonProcessingException;
-    import org.springframework.http.HttpStatus;
-    import org.springframework.web.bind.annotation.ControllerAdvice;
-    import org.springframework.web.bind.annotation.ExceptionHandler;
-
-    import javax.servlet.http.HttpServletResponse;
-    import javax.validation.ConstraintViolation;
-    import javax.validation.ConstraintViolationException;
-    import java.io.IOException;
-    import java.util.Set;
-
-    @ControllerAdvice
-    public class MyExceptionHandler {
-        @ExceptionHandler(ConstraintViolationException.class)
-        public void handleConstraintViolationException(ConstraintViolationException ex, HttpServletResponse response)
-                throws IOException {
-            Set<ConstraintViolation<?>> violations = ex.getConstraintViolations();
-            StringBuilder message = new StringBuilder();
-            for (ConstraintViolation violation : violations) {
-                message.append(violation.getMessage()).append(", ");
-            }
-            response.sendError(HttpStatus.BAD_REQUEST.value(), "aza" + message.substring(0, message.length() - 2));
-        }
-
-        @ExceptionHandler(JsonProcessingException.class)
-        public void handleInvalidJson(HttpServletResponse response) throws IOException {
-            response.sendError(HttpStatus.BAD_REQUEST.value(), "Invalid JSON");
-        }
-    }
-  learner_created: true
-- name: src/account/dto/UserInDTO.java
-  visible: true
-  text: |-
-    package account.dto;
-
-    import lombok.Data;
-    import org.hibernate.validator.constraints.Length;
-
-    import javax.validation.constraints.NotBlank;
-    import javax.validation.constraints.Pattern;
-
-    @Data
-    public class UserInDTO {
-        @NotBlank(message = "Name must not be empty")
-        private String name;
-
-        @NotBlank(message = "Lastname must not be empty")
-        private String lastname;
-
-        @NotBlank(message = "Email must not be empty")
-        @Pattern(message = "Email is not valid (regexp)", regexp = ".+@acme\\.com")
-        private String email;
-
-        @Length(min = 12, message = "Password length must be 12 chars minimum!")
-        @NotBlank(message = "Password must not be empty")
-        private String password;
-    }
-  learner_created: true
-- name: src/account/dto/PaymentInDTO.java
-  visible: true
-  text: |-
-    package account.dto;
-
-    import com.fasterxml.jackson.annotation.JsonFormat;
-    import com.fasterxml.jackson.annotation.JsonProperty;
-    import lombok.Data;
-
-    import javax.validation.constraints.Min;
-    import java.time.YearMonth;
-
-    @Data
-    public class PaymentInDTO {
-        @JsonProperty("employee")
-        private String email;
-
-        @JsonFormat(pattern="MM-y")
-        private YearMonth period;
-
-        @Min(value = 0, message = "Salary cannot be less than 0!")
-        private Long salary;
     }
   learner_created: true
 - name: src/account/repository/UserRepository.java
@@ -1394,101 +930,6 @@ files:
             return Set.of(USER.toString(), ACCOUNTANT.toString(), ADMINISTRATOR.toString());
         }
 
-    }
-  learner_created: true
-- name: src/account/entity/Payment.java
-  visible: true
-  text: |
-    package account.entity;
-
-    import lombok.AllArgsConstructor;
-    import lombok.Builder;
-    import lombok.Data;
-    import lombok.NoArgsConstructor;
-
-    import javax.persistence.Entity;
-    import javax.persistence.GeneratedValue;
-    import javax.persistence.GenerationType;
-    import javax.persistence.Id;
-    import javax.persistence.Table;
-    import javax.persistence.UniqueConstraint;
-    import java.time.YearMonth;
-
-    @Entity
-    @Table(uniqueConstraints={
-            @UniqueConstraint(columnNames = {"email", "period"})
-    })
-    @Data
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public class Payment {
-        @Id
-        @GeneratedValue(strategy = GenerationType.IDENTITY)
-        private Long id;
-        private String email;
-        private YearMonth period;
-        private Long salary;
-    }
-  learner_created: true
-- name: src/account/configuration/UserDetailsImpl.java
-  visible: true
-  text: |
-    package account.configuration;
-
-    import account.entity.Role;
-    import account.entity.User;
-    import org.springframework.security.core.GrantedAuthority;
-    import org.springframework.security.core.userdetails.UserDetails;
-
-    import java.util.Collection;
-    import java.util.Set;
-
-    public class UserDetailsImpl implements UserDetails {
-        private final String username;
-        private final String password;
-        private final Set<Role> rolesAndAuthorities;
-
-        public UserDetailsImpl(User user) {
-            this.username = user.getEmail();
-            this.password = user.getPassword();
-            this.rolesAndAuthorities = user.getUserGroups();
-        }
-
-        @Override
-        public Collection<? extends GrantedAuthority> getAuthorities() {
-            return rolesAndAuthorities;
-        }
-
-        @Override
-        public String getPassword() {
-            return password;
-        }
-
-        @Override
-        public String getUsername() {
-            return username;
-        }
-
-        @Override
-        public boolean isAccountNonExpired() {
-            return true;
-        }
-
-        @Override
-        public boolean isAccountNonLocked() {
-            return true;
-        }
-
-        @Override
-        public boolean isCredentialsNonExpired() {
-            return true;
-        }
-
-        @Override
-        public boolean isEnabled() {
-            return true;
-        }
     }
   learner_created: true
 - name: src/account/controller/UserController.java
@@ -1703,30 +1144,583 @@ files:
         }
     }
   learner_created: true
-- name: src/account/dto/UserOutDTO.java
+- name: src/account/mapper/PayrollMapper.java
+  visible: true
+  text: |
+    package account.mapper;
+
+    import account.dto.PayrollDTO;
+    import account.entity.Payroll;
+
+    import java.time.YearMonth;
+    import java.time.format.DateTimeFormatter;
+    import java.util.Locale;
+
+    public class PayrollMapper {
+
+        public static Payroll toEntity(PayrollDTO payrollDTO){
+            return Payroll.builder()
+                    .employee(payrollDTO.getEmployee())
+                    .period(payrollDTO.getPeriod())
+                    .salary(payrollDTO.getSalary())
+                    .build();
+        }
+
+        public static PayrollDTO toDTO(Payroll payroll){
+            return PayrollDTO.builder()
+                    .name(payroll.getEmployee().getName())
+                    .lastname(payroll.getEmployee().getLastname())
+                    .period(payroll.getPeriod())
+                    .periodView(formatPeriod(payroll.getPeriod()))
+                    .salaryView(formatSalary(payroll.getSalary()))
+                    .build();
+        }
+
+        private static String formatSalary(Long salary) {
+            return String.format("%d dollar(s) %d cent(s)", salary / 100, salary % 100);
+        }
+
+        private static String formatPeriod(YearMonth period) {
+            return period.format(DateTimeFormatter.ofPattern("MMMM-yyyy", Locale.US));
+        }
+    }
+  learner_created: true
+- name: src/account/dto/UserDTO.java
   visible: true
   text: |-
     package account.dto;
+
+    import com.fasterxml.jackson.annotation.JsonProperty;
+    import lombok.AllArgsConstructor;
+    import lombok.Builder;
+    import lombok.Data;
+    import lombok.NoArgsConstructor;
+
+    import javax.validation.constraints.*;
+    import java.util.Set;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public class UserDTO {
+
+        @NotNull
+        private int id;
+        @NotBlank(message = "Name is required")
+        private String name;
+        @NotBlank(message = "Lastname is required")
+        private String lastname;
+        @NotBlank(message = "Email is required")
+        @Email
+        @Pattern(regexp = ".+@acme.com", message = "Domain should be @acme.com")
+        private String email;
+        @NotBlank
+        //@Length(min = 12, message = "Password length must be 12 chars minimum!")
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+        private String password;
+        @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+        private Set<String> roles;
+    }
+  learner_created: true
+- name: src/account/service/PayrollService.java
+  visible: true
+  text: |
+    package account.service;
+
+    import account.dto.PayrollDTO;
+    import account.entity.Payroll;
+    import account.entity.User;
+    import account.mapper.PayrollMapper;
+    import account.repository.PayrollRepository;
+    import account.repository.UserRepository;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.dao.DataIntegrityViolationException;
+    import org.springframework.http.HttpStatus;
+    import org.springframework.security.core.userdetails.UserDetails;
+    import org.springframework.stereotype.Service;
+    import org.springframework.validation.annotation.Validated;
+    import org.springframework.web.server.ResponseStatusException;
+
+    import javax.validation.Valid;
+    import java.time.DateTimeException;
+    import java.time.YearMonth;
+    import java.util.Comparator;
+    import java.util.List;
+    import java.util.Optional;
+
+    @Service
+    @Validated
+    public class PayrollService {
+
+        @Autowired
+        PayrollRepository payrollRepository;
+        @Autowired
+        UserService userService;
+        @Autowired
+        UserRepository userRepository;
+
+        public void uploadPayrolls(@Valid List<PayrollDTO> payrollDTOs) {
+            payrollDTOs.forEach(p -> p.setEmployee(userService.getUserByEmail(p.getEmail())));
+            List<Payroll> payrolls = payrollDTOs.stream().map(PayrollMapper::toEntity).toList();
+            try {
+                payrollRepository.saveAll(payrolls);
+            } catch (DataIntegrityViolationException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payroll not unique!");
+            }
+        }
+
+        public void updatePayment(@Valid PayrollDTO payrollDTO) {
+            User user = userService.getUserByEmail(payrollDTO.getEmail());
+            Optional<Payroll> payrollOpt = payrollRepository.findByEmployeeAndPeriod(user, payrollDTO.getPeriod());
+            if (payrollOpt.isPresent()) {
+                Payroll payroll = payrollOpt.get();
+                payroll.setSalary(payrollDTO.getSalary());
+                payrollRepository.save(payroll);
+            } else {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payroll not found!");
+            }
+        }
+
+        public List<PayrollDTO> getPayrollsByEmployee(UserDetails userDetails) {
+            User user = userService.getUserByEmail(userDetails.getUsername());
+            List<Payroll> payrollById = payrollRepository.findAllByEmployee(user);
+            return payrollById.stream()
+                    .map(PayrollMapper::toDTO)
+                    .sorted(Comparator.comparing(PayrollDTO::getPeriod).reversed())
+                    .toList();
+        }
+
+        public PayrollDTO getPayrollByEmployeeAndPeriod(String period, UserDetails userDetails) {
+            YearMonth periodYM = parsePeriod(period);
+            User user = userService.getUserByEmail(userDetails.getUsername());
+            Optional<Payroll> payrollByPeriod = payrollRepository.findByEmployeeAndPeriod(user, periodYM);
+            if (payrollByPeriod.isPresent()){
+                return PayrollMapper.toDTO(payrollByPeriod.get());
+            }
+            return null;
+        }
+
+        private static YearMonth parsePeriod(String period) {
+            YearMonth periodYM = null;
+            try {
+                periodYM = YearMonth.of(Integer.parseInt(period.substring(3)), Integer.parseInt(period.substring(0, 2)));
+            } catch (DateTimeException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Wrong month in params");
+            }
+            return periodYM;
+        }
+
+    }
+  learner_created: true
+- name: src/account/repository/PayrollRepository.java
+  visible: true
+  text: |
+    package account.repository;
+
+    import account.entity.Payroll;
+    import account.entity.User;
+    import org.springframework.data.repository.CrudRepository;
+
+    import java.time.YearMonth;
+    import java.util.List;
+    import java.util.Optional;
+
+    public interface PayrollRepository extends CrudRepository<Payroll, String> {
+        List<Payroll> findAllByEmployee(User user);
+        Optional<Payroll> findByEmployeeAndPeriod(User user, YearMonth period);
+    }
+  learner_created: true
+- name: src/account/security/WebSecurityConfig.java
+  visible: true
+  text: |
+    package account.security;
+
+    import account.exception.MyAccessDeniedHandler;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.context.annotation.Bean;
+    import org.springframework.context.annotation.Configuration;
+    import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+    import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+    import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+    import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+    import org.springframework.security.config.http.SessionCreationPolicy;
+    import org.springframework.security.core.userdetails.UserDetailsService;
+    import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+    import org.springframework.security.crypto.password.PasswordEncoder;
+    import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+
+    import static org.springframework.security.config.Customizer.withDefaults;
+
+    @Configuration
+    @EnableWebSecurity
+    public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
+
+        @Autowired
+        UserDetailsService userDetailsService;
+
+        @Override
+        public void configure(HttpSecurity http) throws Exception {
+            http.authorizeRequests()
+                    .mvcMatchers("/actuator/**").permitAll()
+                    .mvcMatchers("/h2-console/**").permitAll()
+                    .mvcMatchers("/api/auth/signup").permitAll()
+                    .mvcMatchers("/api/empl/payment").hasAnyAuthority("USER", "ACCOUNTANT")
+                    .mvcMatchers("/api/acct/payments").hasAuthority("ACCOUNTANT")
+                    .mvcMatchers("/api/admin/user/**").hasAuthority("ADMINISTRATOR")
+                    .mvcMatchers("/**").authenticated() // or .anyRequest().authenticated()
+                    .and()
+                    .formLogin()
+                    .and()
+                    .httpBasic(withDefaults())
+                    .csrf(AbstractHttpConfigurer::disable)
+                    .headers((headers) -> headers.frameOptions().sameOrigin())
+                    .sessionManagement()
+                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS) // no session
+                    .and()
+                    .exceptionHandling().accessDeniedHandler(new MyAccessDeniedHandler());
+
+        }
+
+        @Override
+        protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+            auth
+                    .userDetailsService(userDetailsService) // user store 1
+                    .passwordEncoder(getEncoder());
+        }
+
+        @Bean
+        public PasswordEncoder getEncoder() {
+            return new BCryptPasswordEncoder();
+        }
+
+    }
+  learner_created: true
+- name: src/account/security/UserDetailsImpl.java
+  visible: true
+  text: |
+    package account.security;
+
+    import account.entity.Role;
+    import account.entity.User;
+    import org.springframework.security.core.GrantedAuthority;
+    import org.springframework.security.core.userdetails.UserDetails;
+
+    import java.util.Collection;
+    import java.util.Set;
+
+    public class UserDetailsImpl  implements UserDetails {
+        private final String username;
+        private final String password;
+        private final Set<Role> rolesAndAuthorities;
+
+        public UserDetailsImpl(User user) {
+            username = user.getEmail();
+            password = user.getPassword();
+            rolesAndAuthorities= user.getUserGroups();
+        }
+
+        @Override
+        public Collection<? extends GrantedAuthority> getAuthorities() {
+            return rolesAndAuthorities;
+        }
+
+        @Override
+        public String getPassword() { return password; }
+
+        @Override
+        public String getUsername() {
+            return username;
+        }
+
+        // 4 remaining methods that just return true
+        @Override
+        public boolean isAccountNonExpired() {
+            return true;
+        }
+
+        @Override
+        public boolean isAccountNonLocked() {
+            return true;
+        }
+
+        @Override
+        public boolean isCredentialsNonExpired() {
+            return true;
+        }
+
+        @Override
+        public boolean isEnabled() {
+            return true;
+        }
+    }
+  learner_created: true
+- name: src/account/entity/Payroll.java
+  visible: true
+  text: |
+    package account.entity;
 
     import lombok.AllArgsConstructor;
     import lombok.Builder;
     import lombok.Data;
     import lombok.NoArgsConstructor;
 
-    import java.util.Set;
+    import javax.persistence.*;
+    import java.time.YearMonth;
 
-    @Builder
+    @Entity
     @Data
+    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public class UserOutDTO {
-        private Long id;
-        private String name;
-        private String lastname;
-        private String email;
-        private Set<String> roles;
+    @Table(uniqueConstraints={
+            @UniqueConstraint(columnNames = {"employee_id", "period"})
+    })
+    public class Payroll {
+
+        @Id
+        @GeneratedValue(strategy = GenerationType.AUTO)
+        Long id;
+        @ManyToOne
+        User employee;
+        YearMonth period;
+        Long salary;
     }
   learner_created: true
+- name: src/account/security/UserDetailsServiceImpl.java
+  visible: true
+  text: |-
+    package account.security;
+
+    import account.repository.UserRepository;
+    import account.entity.User;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.security.core.userdetails.UserDetails;
+    import org.springframework.security.core.userdetails.UserDetailsService;
+    import org.springframework.security.core.userdetails.UsernameNotFoundException;
+    import org.springframework.stereotype.Service;
+
+    import java.util.Optional;
+
+    @Service
+    public class UserDetailsServiceImpl implements UserDetailsService {
+        private final UserRepository userRepo;
+
+        @Autowired
+        public UserDetailsServiceImpl(UserRepository userRepo) {
+            this.userRepo = userRepo;
+        }
+
+        @Override
+        public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+            Optional<User> user = userRepo.findFirstByEmailIgnoreCase(username);
+
+            if (user.isEmpty()) {
+                throw new UsernameNotFoundException("Not found: " + username);
+            }
+
+            return new UserDetailsImpl(user.get());
+        }
+    }
+  learner_created: true
+- name: src/account/dto/PayrollDTO.java
+  visible: true
+  text: |
+    package account.dto;
+
+    import account.entity.User;
+    import com.fasterxml.jackson.annotation.JsonFormat;
+    import com.fasterxml.jackson.annotation.JsonIgnore;
+    import com.fasterxml.jackson.annotation.JsonProperty;
+    import lombok.AllArgsConstructor;
+    import lombok.Builder;
+    import lombok.Data;
+    import lombok.NoArgsConstructor;
+
+    import javax.validation.constraints.Min;
+    import javax.validation.constraints.NotBlank;
+    import java.time.YearMonth;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public class PayrollDTO {
+        @JsonIgnore
+        User employee;
+        @NotBlank
+        @JsonProperty(value = "employee", access = JsonProperty.Access.WRITE_ONLY)
+        String email;
+        @JsonFormat(pattern="MM-y")
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+        YearMonth period;
+        @Min(value = 0, message = "Salary cannot be less than 0!")
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+        Long salary;
+        String name;
+        String lastname;
+        @JsonProperty(value = "period", access = JsonProperty.Access.READ_ONLY)
+        String periodView;
+        @JsonProperty(value = "salary", access = JsonProperty.Access.READ_ONLY)
+        String salaryView;
+    }
+  learner_created: true
+- name: src/account/dto/ChangeRoleDTO.java
+  visible: true
+  text: |
+    package account.dto;
+
+    import com.fasterxml.jackson.annotation.JsonProperty;
+    import lombok.Data;
+
+    import javax.validation.constraints.Email;
+    import javax.validation.constraints.NotBlank;
+
+    @Data
+    public class ChangeRoleDTO {
+        @JsonProperty("user")
+        @NotBlank
+        @Email
+        private String email;
+        @NotBlank
+        private String role;
+        @NotBlank
+        private String operation;
+    }
+  learner_created: true
+- name: src/account/controller/PayrollController.java
+  visible: true
+  text: |
+    package account.controller;
+
+    import account.dto.PayrollDTO;
+    import account.service.PayrollService;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.security.core.annotation.AuthenticationPrincipal;
+    import org.springframework.security.core.userdetails.UserDetails;
+    import org.springframework.web.bind.annotation.*;
+
+    import java.util.List;
+    import java.util.Map;
+
+    @RestController
+    @RequestMapping("/api")
+    public class PayrollController {
+
+        @Autowired
+        PayrollService payrollService;
+
+        @GetMapping("/empl/payment")
+        public Object showPayroll(@RequestParam(required = false) String period, @AuthenticationPrincipal UserDetails userDetails){
+            if (period == null){
+                return payrollService.getPayrollsByEmployee(userDetails);
+            }
+            return payrollService.getPayrollByEmployeeAndPeriod(period, userDetails);
+        }
+
+        @PutMapping("/acct/payments")
+        public Map<String, String> changeSalary(@RequestBody PayrollDTO payroll){
+            payrollService.updatePayment(payroll);
+            return Map.of("status", "Updated successfully!");
+        }
+
+        @PostMapping("/acct/payments")
+        public Object uploadPayrolls(@RequestBody List<PayrollDTO> payrolls){
+            payrollService.uploadPayrolls(payrolls);
+            return Map.of("status", "Added successfully!");
+        }
+    }
+  learner_created: true
+- name: src/account/dto/ChangeAccessDTO.java
+  visible: true
+  learner_created: true
+- name: src/account/handler/MyExceptionHandler.java
+  visible: true
+  text: |-
+    package account.exception;
+
+    import com.fasterxml.jackson.core.JsonProcessingException;
+    import org.springframework.http.HttpStatus;
+    import org.springframework.web.bind.annotation.ControllerAdvice;
+    import org.springframework.web.bind.annotation.ExceptionHandler;
+
+    import javax.servlet.http.HttpServletResponse;
+    import javax.validation.ConstraintViolation;
+    import javax.validation.ConstraintViolationException;
+    import java.io.IOException;
+    import java.util.Set;
+
+    @ControllerAdvice
+    public class MyExceptionHandler {
+        @ExceptionHandler(ConstraintViolationException.class)
+        public void handleConstraintViolationException(ConstraintViolationException ex, HttpServletResponse response)
+                throws IOException {
+            Set<ConstraintViolation<?>> violations = ex.getConstraintViolations();
+            StringBuilder message = new StringBuilder();
+            for (ConstraintViolation violation : violations) {
+                message.append(violation.getMessage()).append(", ");
+            }
+            response.sendError(HttpStatus.BAD_REQUEST.value(), "aza" + message.substring(0, message.length() - 2));
+        }
+
+        @ExceptionHandler(JsonProcessingException.class)
+        public void handleInvalidJson(HttpServletResponse response) throws IOException {
+            response.sendError(HttpStatus.BAD_REQUEST.value(), "Invalid JSON");
+        }
+    }
+  learner_created: true
+- name: src/account/handler/MyAccessDeniedHandler.java
+  visible: true
+  text: |
+    package account.exception;
+
+    import org.springframework.security.access.AccessDeniedException;
+    import org.springframework.security.web.access.AccessDeniedHandler;
+
+    import javax.servlet.ServletException;
+    import javax.servlet.http.HttpServletRequest;
+    import javax.servlet.http.HttpServletResponse;
+    import java.io.IOException;
+
+    public class MyAccessDeniedHandler implements AccessDeniedHandler {
+        @Override
+        public void handle(HttpServletRequest request,
+                           HttpServletResponse response,
+                           AccessDeniedException accessDeniedException) throws IOException {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied!");
+        }
+    }
+  learner_created: true
+- name: src/account/security/MyAuthenticationEventListener.java
+  visible: true
+  learner_created: true
+- name: src/account/controller/EventController.java
+  visible: true
+  learner_created: true
+- name: src/account/dto/EventDTO.java
+  visible: true
+  learner_created: true
+- name: src/account/entity/Event.java
+  visible: true
+  learner_created: true
+- name: src/account/repository/EventRepository.java
+  visible: true
+  learner_created: true
+- name: src/account/service/EventService.java
+  visible: true
+  learner_created: true
+- name: src/account/mapper/EventMapper.java
+  visible: true
+  learner_created: true
+- name: src/account/entity/Operation.java
+  visible: true
+  learner_created: true
+- name: src/account/security/MyAuthenticationEntryPoint.java
+  visible: true
+  learner_created: true
 feedback_link: https://hyperskill.org/learn/step/16606#comment
-status: Unchecked
+status: Solved
+feedback:
+  message: Congratulations!
+  time: "Mon, 20 Feb 2023 05:13:44 UTC"
 record: 6

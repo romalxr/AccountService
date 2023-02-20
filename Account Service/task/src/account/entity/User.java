@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
+import java.util.Date;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -23,6 +24,9 @@ public class User {
     private String lastname;
     @Column(unique = true)
     private String email;
+    private boolean accountLocked;
+    private int failedAttempt;
+    private Date lockTime;
     private String password;
     @ElementCollection(targetClass = Role.class, fetch = FetchType.EAGER)
     private Set<Role> userGroups;

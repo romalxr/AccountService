@@ -3,6 +3,7 @@ package account.mapper;
 import account.dto.UserDTO;
 import account.entity.User;
 
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 public class UserMapper {
@@ -24,7 +25,7 @@ public class UserMapper {
                 .email(userEntity.getEmail())
                 .roles(userEntity.getUserGroups().stream()
                         .map(el -> "ROLE_" + el)
-                        .collect(Collectors.toSet()))
+                        .collect(Collectors.toCollection(TreeSet::new)))
                 .build();
     }
 }

@@ -6,6 +6,7 @@ import account.entity.User;
 import account.mapper.PayrollMapper;
 import account.repository.PayrollRepository;
 import account.repository.UserRepository;
+import org.hibernate.validator.internal.util.stereotypes.Lazy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,7 @@ public class PayrollService {
     @Autowired
     PayrollRepository payrollRepository;
     @Autowired
+    @Lazy
     UserService userService;
     @Autowired
     UserRepository userRepository;
@@ -67,14 +69,11 @@ public class PayrollService {
         YearMonth periodYM = parsePeriod(period);
         User user = userService.getUserByEmail(userDetails.getUsername());
         Optional<Payroll> payrollByPeriod = payrollRepository.findByEmployeeAndPeriod(user, periodYM);
-        if (payrollByPeriod.isPresent()){
-            return PayrollMapper.toDTO(payrollByPeriod.get());
-        }
-        return null;
+        return payrollByPeriod.map(PayrollMapper::toDTO).orElse(null);
     }
 
     private static YearMonth parsePeriod(String period) {
-        YearMonth periodYM = null;
+        YearMonth periodYM;
         try {
             periodYM = YearMonth.of(Integer.parseInt(period.substring(3)), Integer.parseInt(period.substring(0, 2)));
         } catch (DateTimeException e) {
