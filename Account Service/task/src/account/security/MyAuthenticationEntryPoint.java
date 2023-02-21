@@ -17,8 +17,6 @@ public class MyAuthenticationEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException authException) throws IOException {
-        System.out.println("watafaka Locked " + request.getRequestURI());
-
         ObjectMapper mapper = new ObjectMapper();
         Map<String,Object> responseMSG = new LinkedHashMap<>();
         responseMSG.put("timestamp", new Date());
